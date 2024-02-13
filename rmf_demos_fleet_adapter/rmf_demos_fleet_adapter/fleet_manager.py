@@ -48,10 +48,15 @@ import uvicorn
 from typing import Optional
 from pydantic import BaseModel
 
+# Note: add logging to figure out args_without_ros
+import logging
+logging.basicConfig(filename="/home/jbao/rmf_ws/log/jerry_log/fleet_manager.log",level=logging.INFO)
+
 import threading
 app = FastAPI()
 
-
+# Note: think Student, Delivery, etc. Real world objects
+#           doc: https://docs.pydantic.dev/latest/
 class Request(BaseModel):
     map_name: Optional[str] = None
     task: Optional[str] = None
@@ -77,12 +82,19 @@ class State:
         self.last_path_request = None
         self.last_completed_request = None
         self.mode_teleop = False
+        # Note: convert coordinates between 2 given coordinate reference systems
+        #       EPSG:4326 is the source CRS code, representing the World Geodetic
+        #           Ststen 1984(WGS1984) in geographic coordinates (lat, long)
+        #       EPSG:3414 is the target CRS code, representing the Swiss Transverse
+        #           Mercator projection, an area-preserving projection
         self.svy_transformer = Transformer.from_crs('EPSG:4326', 'EPSG:3414')
         self.gps_pos = [0, 0]
 
     def gps_to_xy(self, gps_json: dict):
+        # Note: transform the given lat and lon in EPSG:4326 to EPSG:3414
         svy21_xy = \
             self.svy_transformer.transform(gps_json['lat'], gps_json['lon'])
+        # Note: longitude conveys horizontal axis info, latitude conveys vertical axis info
         self.gps_pos[0] = svy21_xy[1]
         self.gps_pos[1] = svy21_xy[0]
 
@@ -445,10 +457,13 @@ class FleetManager(Node):
 # Main
 # ------------------------------------------------------------------------------
 def main(argv=sys.argv):
+    logging.INFO("Inside main")
     # Init rclpy and adapter
     rclpy.init(args=argv)
     adpt.init_rclcpp()
     args_without_ros = rclpy.utilities.remove_ros_args(argv)
+    # Note: log the args_without_ros variable content
+    logging.INFO(f"args_without_ros: {args_without_ros}")
 
     parser = argparse.ArgumentParser(
         prog="fleet_adapter",
